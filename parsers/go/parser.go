@@ -58,54 +58,62 @@ func Parse(filename string) *ParsedSource {
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.TypeSpec:
-			start := int64(fset.Position(x.Pos()).Offset)
-			end := int64(fset.Position(x.Type.End()).Offset)
-			name := x.Name.String()
-			body := "type " + readCodeBlock(start, end, fi)
-
-			parsedsource.Types[name] = Type{
-				Name:    name,
-				Docs:    x.Doc.Text(),
-				Body:    body,
-				Methods: make(map[string]Func),
-			}
+			parseType(parsedsource, x, fset, fi)
 		case *ast.FuncDecl:
-			var (
-				fname      = x.Name.String()
-				start, end int64
-				recv       string
-			)
-
-			if x.Recv == nil {
-				start = int64(fset.Position(x.Type.Func).Offset)
-				end = int64(fset.Position(x.Body.End()).Offset)
-				// In this case we are not a method, but a
-				// top level function.
-				parsedsource.TopLevelFuncs[fname] = Func{
-					Doc:  x.Doc.Text(),
-					Body: readCodeBlock(start, end, fi),
-				}
-			} else {
-				for _, y := range x.Recv.List {
-					start = int64(fset.Position(y.Type.Pos()).Offset)
-					end = int64(fset.Position(y.Type.End()).Offset)
-					recv = readCodeBlock(start, end, fi)
-					recv = strings.Replace(recv, "*", "", -1)
-				}
-
-				start = int64(fset.Position(x.Type.Func).Offset)
-				end = int64(fset.Position(x.Body.End()).Offset)
-				parsedsource.Types[recv].Methods[fname] = Func{
-					Doc:  x.Doc.Text(),
-					Body: readCodeBlock(start, end, fi),
-				}
-			}
+			parseFunc(parsedsource, x, fset, fi)
 		}
 
 		return true
 	})
 
 	return parsedsource
+}
+
+func parseFunc(parsedsource *ParsedSource, fdecl *ast.FuncDecl, fset *token.FileSet, fi *os.File) {
+	var (
+		fname      = fdecl.Name.String()
+		start, end int64
+		recv       string
+	)
+
+	if fdecl.Recv == nil {
+		start = int64(fset.Position(fdecl.Type.Func).Offset)
+		end = int64(fset.Position(fdecl.Body.End()).Offset)
+		// In this case we are not a method, but a
+		// top level function.
+		parsedsource.TopLevelFuncs[fname] = Func{
+			Doc:  fdecl.Doc.Text(),
+			Body: readCodeBlock(start, end, fi),
+		}
+	} else {
+		for _, y := range fdecl.Recv.List {
+			start = int64(fset.Position(y.Type.Pos()).Offset)
+			end = int64(fset.Position(y.Type.End()).Offset)
+			recv = readCodeBlock(start, end, fi)
+			recv = strings.Replace(recv, "*", "", -1)
+		}
+
+		start = int64(fset.Position(fdecl.Type.Func).Offset)
+		end = int64(fset.Position(fdecl.Body.End()).Offset)
+		parsedsource.Types[recv].Methods[fname] = Func{
+			Doc:  fdecl.Doc.Text(),
+			Body: readCodeBlock(start, end, fi),
+		}
+	}
+}
+
+func parseType(parsedsource *ParsedSource, tspec *ast.TypeSpec, fset *token.FileSet, fi *os.File) {
+	start := int64(fset.Position(tspec.Pos()).Offset)
+	end := int64(fset.Position(tspec.Type.End()).Offset)
+	name := tspec.Name.String()
+	body := "type " + readCodeBlock(start, end, fi)
+
+	parsedsource.Types[name] = Type{
+		Name:    name,
+		Docs:    tspec.Doc.Text(),
+		Body:    body,
+		Methods: make(map[string]Func),
+	}
 }
 
 func readCodeBlock(start, end int64, f *os.File) string {
