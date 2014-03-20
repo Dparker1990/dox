@@ -1,6 +1,7 @@
 package goparser
 
 import (
+	"os"
 	"testing"
 )
 
@@ -81,5 +82,34 @@ func TestParsingRecvFuncs(t *testing.T) {
 		if sut.Body != f.body {
 			t.Errorf("Body did not match, got: %#v", sut.Body)
 		}
+	}
+}
+
+func TestDumpJSON(t *testing.T) {
+	p := Parse("fixtures/parse_me.go")
+	p.DumpJSON()
+
+	f, err := os.Open("parseme.json")
+	if err != nil {
+		t.Error(err)
+	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if fi.Size() == 0 {
+		t.Error("Json was not dumped")
+	}
+
+	err = f.Close()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = os.Remove("parseme.json")
+	if err != nil {
+		t.Error(err)
 	}
 }

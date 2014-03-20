@@ -1,6 +1,7 @@
 package goparser
 
 import (
+	"encoding/json"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -11,28 +12,47 @@ import (
 )
 
 type ParsedSource struct {
-	PackageName   string
-	PackageDocs   string
-	Types         map[string]Type
-	TopLevelFuncs map[string]Func
+	PackageName   string          `packageName`
+	PackageDocs   string          `packageDocs`
+	Types         map[string]Type `types`
+	TopLevelFuncs map[string]Func `topLevelFuncs`
 }
 
 type Func struct {
-	Doc  string
-	Body string
+	Doc  string `doc`
+	Body string `body`
 }
 
 type Type struct {
-	Name    string
-	Body    string
-	Docs    string
-	Methods map[string]Func
+	Name    string          `name`
+	Body    string          `body`
+	Docs    string          `docs`
+	Methods map[string]Func `methods`
 }
 
 func NewParsedSource() *ParsedSource {
 	return &ParsedSource{
 		TopLevelFuncs: make(map[string]Func),
 		Types:         make(map[string]Type),
+	}
+}
+
+func (ps *ParsedSource) DumpJSON() {
+	out, err := os.Create(ps.PackageName + ".json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	encoder := json.NewEncoder(out)
+
+	err = encoder.Encode(ps)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = out.Close()
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
